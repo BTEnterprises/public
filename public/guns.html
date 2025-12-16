@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fetch Weapon Data from Backend and Copy Table</title>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 24px;
+      background: #111827;
+      color: #0850e8;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 16px;
+      font-weight: 800;
+      font-size: 2rem;
+      color: #0850e8;
+    }
+    .button-container {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 960px;
+      width: 100%;
+    }
+    button.toggle-btn {
+      background: #2c21ff;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: background-color 0.3s ease;
+      user-select:none;
+    }
+    button.toggle-btn:hover,
+    button.toggle-btn:focus {
+      background: #2c21ff;
+      outline: none;
+    }
+    .message {
+      margin-top: 12px;
+      font-size: 1rem;
+      color: #2c21ff;
+      font-weight: 600;
+      min-height: 1.2em;
+      max-width: 720px;
+      text-align: center;
+      word-break: break-word;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 960px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    thead {
+      background: linear-gradient(90deg, #2c21ff, #2c21ff);
+      color: white;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    th, td {
+      padding: 16px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      word-break: break-word;
+    }
+    tbody tr:hover {
+      background-color: #dcfce7;
+    }
+    button.copy-btn {
+      background: #2c21ff;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.5rem;
+      transition: background-color 0.3s ease;
+      user-select:none;
+    }
+    button.copy-btn:hover,
+    button.copy-btn:focus {
+      background: #2c21ff;
+      outline: none;
+    }
+    @media (max-width: 680px) {
+      th, td {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+      }
+      button.copy-btn {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+      }
+      .button-container {
+        flex-direction: column;
+        gap: 12px;
+      }
+      button.toggle-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Weapon Data Table with Copy Buttons</h1>
+  <div class="button-container">
+    <label for="gunTypeSelect">Select Gun Type:</label>
+    <select id="gunTypeSelect">
+      <option value="all">All</option>
+      <!-- Options will be populated dynamically -->
+    </select>
+    <button id="toggleMetaBtn" class="toggle-btn" aria-pressed="true" aria-label="Toggle visibility of rows where type is Meta">Hide Meta Rows</button>
+    <button id="toggleBudgetBtn" class="toggle-btn" aria-pressed="true" aria-label="Toggle visibility of rows where type is Budget">Hide Budget Rows</button>
+  </div>
+  <div class="message" id="message" aria-live="polite" role="status">Loading data from backend...</div>
+  <table id="dataTable" aria-label="Weapon data table" hidden>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Details</th>
+        <th>Author</th>
+        <th>Copy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Rows populated dynamically -->
+    </tbody>
+  </table>
+
+  <script>
+    const BACKEND_URL = 'https://rival.rocks/guns.txt'; // <-- Replace this URL with your backend file URL
+
+    const messageEl = document.getElementById('message');
+    const dataTable = document.getElementById('dataTable');
+    const tbody = dataTable.querySelector('tbody');
+
+    const toggleMetaBtn = document.getElementById('toggleMetaBtn');
+    const toggleBudgetBtn = document.getElementById('toggleBudgetBtn');
+
+    // Track current visibility states
+    let metaVisible = true;
+    let budgetVisible = true;
+
+    // Clear the table
+    function clearTable() {
+      while (tbody.firstChild) {
+        tbody.removeChild(tbody.firstChild);
+      }
+    }
+
+    // Create table row element given fields array
+    function createRow(fields) {
+      const tr = document.createElement('tr');
+      // Save type in data attribute for filtering
+      tr.dataset.type = fields[1].toLowerCase();
+
+      fields.forEach((field) => {
+        const td = document.createElement('td');
+        td.textContent = field;
+        tr.appendChild(td);
+      });
+
+      const actionTd = document.createElement('td');
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.type = 'button';
+      btn.textContent = 'Copy';
+      btn.setAttribute('aria-label', `Copy details field: ${fields[2]}`);
+      btn.addEventListener('click', () => copyToClipboard(fields[2], btn));
+      actionTd.appendChild(btn);
+      tr.appendChild(actionTd);
+
+      return tr;
+    }
+
+    // Copy text to clipboard with feedback
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.disabled = false;
+        }, 1500);
+      }).catch(err => {
+        alert('Failed to copy text: ' + err);
+      });
+    }
+
+    // Parse a line into fields
+    function parseLine(line) {
+      const parts = line.split(' : ');
+      if (parts.length < 3) return null;
+      return parts.map(part => part.trim());
+    }
+
+    // Filter rows based on visibility states
+    function updateRowVisibility() {
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const type = row.dataset.type;
+        if (type === 'meta' && !metaVisible) {
+          row.style.display = 'none';
+        } else if (type === 'budget' && !budgetVisible) {
+          row.style.display = 'none';
+        } else {
+          row.style.display = '';
+        }
+      });
+    }
+
+    // Handler for Meta toggle button
+    toggleMetaBtn.addEventListener('click', () => {
+      metaVisible = !metaVisible;
+      toggleMetaBtn.textContent = (metaVisible ? 'Hide' : 'Show') + ' Meta Rows';
+      toggleMetaBtn.setAttribute('aria-pressed', metaVisible.toString());
+      updateRowVisibility();
+    });
+
+    // Handler for Budget toggle button
+    toggleBudgetBtn.addEventListener('click', () => {
+      budgetVisible = !budgetVisible;
+      toggleBudgetBtn.textContent = (budgetVisible ? 'Hide' : 'Show') + ' Budget Rows';
+      toggleBudgetBtn.setAttribute('aria-pressed', budgetVisible.toString());
+      updateRowVisibility();
+    });
+
+    function populateSelectWithFirstColumnValues() {
+      const tbody = document.querySelector('#dataTable tbody'); // Select the tbody of the table
+      const rows = tbody.querySelectorAll('tr'); // Get all rows in the tbody
+      const gunTypeSelect = document.getElementById('gunTypeSelect'); // Get the select element
+      // Clear existing options
+      gunTypeSelect.innerHTML = '<option value="all">All</option>'; // Reset to default option
+      const firstColumnValues = new Set(); // Use a Set to avoid duplicates
+      rows.forEach(row => {
+        const firstCell = row.cells[0]; // Get the first cell (first column)
+        if (firstCell) {
+          firstColumnValues.add(firstCell.textContent.trim()); // Add the text content to the Set
+        }
+      });
+      console.log(firstColumnValues);
+      // Create and append options for each unique value
+      firstColumnValues.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value.toLowerCase(); // Set the value to lowercase for consistency
+        option.textContent = value; // Set the display text
+        gunTypeSelect.appendChild(option); // Append the option to the select element
+      });
+    }
+
+    async function fetchData() {
+      messageEl.textContent = 'Loading data from backend...';
+      dataTable.hidden = true;
+      clearTable();
+
+      try {
+        const response = await fetch(BACKEND_URL, {
+          mode: 'cors',
+          cache: 'no-cache'
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+        const text = await response.text();
+        if (!text.trim()) {
+          messageEl.textContent = 'The backend file is empty.';
+          return;
+        }
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        let validRowCount = 0;
+        for (const line of lines) {
+          const fields = parseLine(line);
+          if (fields) {
+            const tr = createRow(fields);
+            tbody.appendChild(tr);
+            validRowCount++;
+          }
+        }
+        if (validRowCount === 0) {
+          messageEl.textContent = 'No valid data rows found in the backend file.';
+          dataTable.hidden = true;
+          return;
+        }
+        messageEl.textContent = `Loaded ${validRowCount} rows. Use the Copy buttons to copy the details field.`;
+        dataTable.hidden = false;
+        // Reset toggle state and show all rows initially
+        metaVisible = true;
+        budgetVisible = true;
+        toggleMetaBtn.textContent = 'Hide Meta Rows';
+        toggleMetaBtn.setAttribute('aria-pressed', 'true');
+        toggleBudgetBtn.textContent = 'Hide Budget Rows';
+        toggleBudgetBtn.setAttribute('aria-pressed', 'true');
+        updateRowVisibility();
+      } catch (error) {
+        messageEl.textContent = 'Failed to fetch or parse the backend file: ' + error.message;
+        dataTable.hidden = true;
+      }
+      populateSelectWithFirstColumnValues();
+    }
+
+    function updateRRowVisibility() {
+      const tbody = document.querySelector('#dataTable tbody'); // Select the tbody of the table
+      const rows = tbody.querySelectorAll('tr'); // Get all rows in the tbody
+      const selectedType = gunTypeSelect.value; // Get the selected value from the select element
+      rows.forEach(row => {
+        const firstCell = row.cells[0]; // Get the first cell (first column)
+        if (firstCell) {
+          const rowValue = firstCell.textContent.trim().toLowerCase(); // Get the value and convert to lowercase
+          // Show the row if it matches the selected type or if "All" is selected
+          if (selectedType === 'all' || rowValue === selectedType) {
+            row.style.display = ''; // Show the row
+          } else {
+            row.style.display = 'none'; // Hide the row
+          }
+        }
+      });
+    }
+    // Add event listener to the select element
+    gunTypeSelect.addEventListener('change', updateRRowVisibility);
+
+    // Fetch data after DOM loads
+    document.addEventListener('DOMContentLoaded', fetchData);
+
+  </script>
+</body>
+</html>
+

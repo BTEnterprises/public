@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Eastern → UTC Unix Timestamp</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.7);
+      max-width: 350px;
+      width: 100%;
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+    }
+    select, input, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      border: none;
+      border-radius: 6px;
+      background: #2a2a2a;
+      color: #eee;
+      font-size: 14px;
+    }
+    button {
+      background: #3a7bd5;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    button:hover {
+      background: #5596e6;
+    }
+    .output {
+      margin-top: 16px;
+      font-family: monospace;
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Eastern → UTC Unix Timestamp</h2>
+
+    <label for="month">Month:</label>
+    <select id="month"></select>
+
+    <label for="day">Day:</label>
+    <select id="day"></select>
+
+    <label for="time">Time (HH:MM AM/PM):</label>
+    <input type="text" id="time">
+
+    <label for="format">Format:</label>
+    <select id="format">
+      <option value="t">t</option>
+      <option value="T">T</option>
+      <option value="d">d</option>
+      <option value="D">D</option>
+      <option value="f">f</option>
+      <option value="F" selected>F</option>
+      <option value="R">R</option>
+    </select>
+
+    <button onclick="convert()">Convert</button>
+
+    <div class="output" id="utcTime"></div>
+    <div class="output" id="unixResult"></div>
+  </div>
+
+  <script>
+    const monthSelect = document.getElementById("month");
+    const daySelect = document.getElementById("day");
+    const timeInput = document.getElementById("time");
+    const formatSelect = document.getElementById("format");
+    const utcDiv = document.getElementById("utcTime");
+    const unixDiv = document.getElementById("unixResult");
+
+    // Populate months
+    for (let m = 1; m <= 12; m++) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      monthSelect.appendChild(opt);
+    }
+
+    // Populate days (depends on month)
+    function updateDays() {
+      const year = new Date().getFullYear();
+      const month = parseInt(monthSelect.value);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      daySelect.innerHTML = "";
+      for (let d = 1; d <= daysInMonth; d++) {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        daySelect.appendChild(opt);
+      }
+    }
+
+    monthSelect.addEventListener("change", updateDays);
+
+    // Default today
+    const now = new Date();
+    monthSelect.value = now.getMonth() + 1;
+    updateDays();
+    daySelect.value = now.getDate();
+    timeInput.value = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+    function convert() {
+      try {
+        const year = new Date().getFullYear();
+        const month = parseInt(monthSelect.value);
+        const day = parseInt(daySelect.value);
+        const timeStr = timeInput.value.trim();
+        const format = formatSelect.value;
+
+        // Parse user input in EST
+        const estOptions = { timeZone: "America/New_York", hour12: true };
+        const dateString = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")} ${timeStr}`;
+        const dt = new Date(dateString);
+
+        // Adjust EST → UTC (Date assumes local time, so trick: parse as if EST)
+        const estDate = new Date(
+          new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/New_York",
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", hour12: true
+          }).formatToParts(dt).map(p => p.value).join(" ")
+        );
+
+        // Get Unix timestamp (UTC)
+        const unix = Math.floor(dt.getTime() / 1000);
+
+        // Show outputs
+        const utcStr = dt.toLocaleString("en-US", { timeZone: "UTC", hour12: true });
+        utcDiv.textContent = "UTC Time: " + utcStr;
+        unixDiv.textContent = "Discord: <t:" + unix + ":" + format + ">";
+
+        navigator.clipboard.writeText("<t:" + unix + ":" + format + ">");
+      } catch (e) {
+        alert("Error parsing input: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
